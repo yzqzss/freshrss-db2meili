@@ -5,7 +5,7 @@ MYSQL_PASSWORD = ""
 # entry table is "{MYSQL_PREFIX}{FRESHRSS_USERNAME}_entry"
 MYSQL_PREFIX = ""
 FRESHRSS_USERNAME = ""
-MYSQL_CONTENT_COMPRESSED = True
+MYSQL_CONTENT_COMPRESSED = True # True if content is compressed (content_bin), False if not
 
 MEILI_URL = "http://localhost:7700"
 MEILI_KEY = ""

@@ -86,7 +86,9 @@ ORDER BY id ASC;
                 else: # empty content
                     row["content"] = b""
             else:
-                # row["content"] = row["content"]
+                # TODO:
+                # row["content"] = row["content"] ?
+                # or row["content"] = row["content"].decode("utf-8") ?
                 ...
 
             assert isinstance(row["content"], bytes)

@@ -5,7 +5,7 @@ Import articles from FreshRSS database (Mysql/MariaDB) into MeiliSearch
 ## Installation
 
 ```bash
-pip install -r requirements.txt
+pip install -e .
 apt intall pandoc -y # for markdown conversion
 ```
 
@@ -26,6 +26,14 @@ hahaha
 
 eeeee
 ```
+
+markdown
+markdown_github
+markdown_mmd
+markdown_phpextra
+markdown_strict
+commonmark
+commonmark_x
 
 ## Configuration
 

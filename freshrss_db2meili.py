@@ -1,6 +1,7 @@
 import argparse
 import asyncio
 import os
+from typing import List, Sequence, TypedDict
 import zlib
 
 from meilisearch_python_sdk import AsyncClient as MeiliAsyncClient
@@ -8,9 +9,12 @@ from mysql.connector.cursor import MySQLCursor
 from tqdm import tqdm
 import meilisearch_python_sdk.errors
 import mysql.connector
+from markdownify import MarkdownConverter
+
 
 from config import (
     CHUNK_SIZE,
+    WORKERS,
     FRESHRSS_USERNAME,
     MEILI_KEY,
     MEILI_URL,
@@ -34,6 +38,14 @@ async def markdowify_by_pandoc(content: bytes) -> str:
     stdout, stderr = await proc.communicate(input=content)
     await proc.wait()
     return stdout.decode("utf-8")
+
+async def markdowify_by_markdownify(converter: MarkdownConverter, content: bytes) -> str:
+    # return converter.convert(content)
+    r = asyncio.get_event_loop().run_in_executor(None, converter.convert, content)
+    ret = await r
+    if exp:=r.exception():
+        raise exp
+    return ret
     
 
 def get_todo_entries_size(cursor: MySQLCursor, meili_max_id: int) -> int:
@@ -52,6 +64,20 @@ WHERE
     assert isinstance(result, int)
 
     return result
+
+class Entry(TypedDict):
+    id: int
+    id_feed: int
+    title: str
+    author: list[str] # generated list
+    link: str
+    date: int
+    lastSeen: int
+    is_favorite: int
+    tags: list[str]   # generated list
+    content: str
+
+    content_length: int
 
 def get_entry_data(cursor: MySQLCursor, meili_max_id: int):
     sql = f"""
@@ -77,6 +103,7 @@ ORDER BY id ASC;
     while entry_chunk := cursor.fetchmany(CHUNK_SIZE):
         columns = [column[0] for column in cursor.description]
         entry_chunk = [dict(zip(columns, row)) for row in entry_chunk]
+        entry_chunk: List[Entry]
         # convert bytesarray to string
         for row in entry_chunk:
             if MYSQL_CONTENT_COMPRESSED:
@@ -125,7 +152,8 @@ async def main():
     ml_client = MeiliAsyncClient(MEILI_URL, MEILI_KEY)
     if args.init:
         await ml_client.index('entry').update_searchable_attributes(["title", "content", "author", "link", "tags"])
-        await ml_client.index('entry').update_sortable_attributes(["id"])
+        await ml_client.index('entry').update_sortable_attributes(["id", "date"])
+        await ml_client.index('entry').update_filterable_attributes(["id_feed", "author", "tags", "date"])
         print("index initialized")
         return
     if args.delete:
@@ -149,20 +177,39 @@ async def main():
     
     todo_entries_size = get_todo_entries_size(my_cursor, meili_max_id)
 
-    entries_queue = asyncio.Queue(maxsize=15)
+    chunked_entries_queue: asyncio.Queue[Sequence[Entry]] = asyncio.Queue(maxsize=WORKERS*2)
 
     async def worker(worker_id:int = 0):
+        converter = MarkdownConverter()
         while True:
-            entry_chunk = await entries_queue.get()
+            entry_chunk = await chunked_entries_queue.get()
             for row in tqdm(entry_chunk, desc=f"worker{worker_id} pandoc...", unit="markdown", unit_scale=1, total=len(entry_chunk)):
                 if row["content"]:
-                    row["content"] = await markdowify_by_pandoc(row["content"])
+                    row["content"] = await markdowify_by_markdownify(converter, row["content"])
                 else:
                     row["content"] = ""
+
+                row["content_length"] = len(row["content"])-(sum(row["content"].count(x) for x in ["\n", " ", "\t", "\r", "\0"]))
+
+                # author = '' if self.authors is None else ';' + '; '.join(self.authors)
+                if row["author"]:
+                    row["author"] = row["author"][1:].split("; ")
+                else:
+                    row["author"] = []
+                assert isinstance(row["author"], list)
+
+                if row["tags"]:
+                    row["tags"] = row["tags"][1:].split(" #")
+                else:
+                    row["tags"] = []
+                assert isinstance(row["tags"], list)
+            
+
             try:
                 await ml_client.index("entry").add_documents(
                     documents=entry_chunk,
-                    primary_key="id"
+                    primary_key="id",
+                    compress=True
                 )
             except meilisearch_python_sdk.errors.MeilisearchApiError as e:
                 print(e)
@@ -171,16 +218,16 @@ async def main():
                 die = True
 
             
-            entries_queue.task_done()
+            chunked_entries_queue.task_done()
 
 
 
-    # start 12 workers
-    workers = [worker(i) for i in range(12)]
+    # start workers
+    workers = [worker(i) for i in range(WORKERS)]
     tasks = [asyncio.create_task(worker) for worker in workers]
 
     for entry_chunk in tqdm(get_entry_data(my_cursor, meili_max_id), total=todo_entries_size//CHUNK_SIZE, desc="importing entry", unit="chunk", unit_scale=CHUNK_SIZE):
-        await entries_queue.put(entry_chunk)
+        await chunked_entries_queue.put(entry_chunk)
         if die:
             print("die...")
             break
@@ -188,7 +235,7 @@ async def main():
             print("stop...")
             break
     
-    await entries_queue.join()
+    await chunked_entries_queue.join()
     print('closing workers')
     for task in tasks:
         task.cancel()

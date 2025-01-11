@@ -1,3 +1,4 @@
 meilisearch-python-sdk
 mysql-connector-python
 tqdm
+markdownify

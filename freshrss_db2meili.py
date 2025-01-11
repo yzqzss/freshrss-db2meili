@@ -153,7 +153,7 @@ async def main():
     if args.init:
         await ml_client.index('entry').update_searchable_attributes(["title", "content", "author", "link", "tags"])
         await ml_client.index('entry').update_sortable_attributes(["id", "date"])
-        await ml_client.index('entry').update_filterable_attributes(["id_feed", "author", "tags", "date"])
+        await ml_client.index('entry').update_filterable_attributes(["id", "id_feed","content", "author", "tags", "date", "title", "link"])
         print("index initialized")
         return
     if args.delete:
@@ -177,13 +177,13 @@ async def main():
     
     todo_entries_size = get_todo_entries_size(my_cursor, meili_max_id)
 
-    chunked_entries_queue: asyncio.Queue[Sequence[Entry]] = asyncio.Queue(maxsize=WORKERS*2)
+    chunked_entries_queue: asyncio.Queue[Sequence[Entry]] = asyncio.Queue(maxsize=WORKERS)
 
     async def worker(worker_id:int = 0):
         converter = MarkdownConverter()
         while True:
             entry_chunk = await chunked_entries_queue.get()
-            for row in tqdm(entry_chunk, desc=f"worker{worker_id} pandoc...", unit="markdown", unit_scale=1, total=len(entry_chunk)):
+            for row in tqdm(entry_chunk, desc=f"worker{worker_id} ...", unit="markdown", unit_scale=1, total=len(entry_chunk)):
                 if row["content"]:
                     row["content"] = await markdowify_by_markdownify(converter, row["content"])
                 else:
@@ -211,7 +211,7 @@ async def main():
                     primary_key="id",
                     compress=True
                 )
-            except meilisearch_python_sdk.errors.MeilisearchApiError as e:
+            except (meilisearch_python_sdk.errors.MeilisearchApiError, Exception) as e:
                 print(e)
                 print(entry_chunk)
                 global die

@@ -5,35 +5,8 @@ Import articles from FreshRSS database (Mysql/MariaDB) into MeiliSearch
 ## Installation
 
 ```bash
-pip install -e .
-apt intall pandoc -y # for markdown conversion
+pip install -r requirements.txt
 ```
-
-Verify that pandoc can convert from html to markdown:
-
-```bash
-$ pandoc --list-input-formats | grep html
-html
-$ pandoc --list-output-formats | grep markdown
-markdown
-markdown_github
-markdown_mmd
-markdown_phpextra
-markdown_strict
-$ echo '<h1>hahaha</h1><p>eeeee</p>' | pandoc --from html --to markdown
-hahaha
-======
-
-eeeee
-```
-
-markdown
-markdown_github
-markdown_mmd
-markdown_phpextra
-markdown_strict
-commonmark
-commonmark_x
 
 ## Configuration
 

@@ -10,5 +10,5 @@ MYSQL_CONTENT_COMPRESSED = True # True if content is compressed (content_bin), F
 MEILI_URL = "http://localhost:7700"
 MEILI_KEY = ""
 
-CHUNK_SIZE = 500
+CHUNK_SIZE = 50
 WORKERS = 12

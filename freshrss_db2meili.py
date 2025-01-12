@@ -153,7 +153,7 @@ async def main():
     if args.init:
         await ml_client.index('entry').update_searchable_attributes(["title", "content", "author", "link", "tags"])
         await ml_client.index('entry').update_sortable_attributes(["id", "date"])
-        await ml_client.index('entry').update_filterable_attributes(["id", "id_feed","content", "author", "tags", "date", "title", "link"])
+        await ml_client.index('entry').update_filterable_attributes(["id", "id_feed","content", "author", "tags", "date", "title", "link", "content_length"])
         print("index initialized")
         return
     if args.delete:

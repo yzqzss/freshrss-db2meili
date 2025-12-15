@@ -5,7 +5,7 @@ Import articles from FreshRSS database (Mysql/MariaDB) into MeiliSearch
 ## Installation
 
 ```bash
-pip install -r requirements.txt
+uv sync
 ```
 
 ## Configuration

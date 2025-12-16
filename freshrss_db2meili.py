@@ -197,11 +197,16 @@ async def main():
             
 
             try:
-                await ml_client.index("entry").add_documents(
+                task = await ml_client.index("entry").add_documents(
                     documents=entry_chunk,
                     primary_key="id",
                     compress=True
                 )
+                while True:
+                    task_info = await ml_client.get_task(task.task_uid)
+                    if task_info.status in ["succeeded", "failed"]:
+                        break
+                    await asyncio.sleep(0.5)
             except (meilisearch_python_sdk.errors.MeilisearchApiError, Exception) as e:
                 print(e)
                 print(entry_chunk)

@@ -5,6 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "html-to-markdown>=2.14.8",
     "markdownify>=1.2.2",
     "meilisearch-python-sdk>=5.5.2",
     "mysql-connector-python>=9.5.0",

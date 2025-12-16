@@ -9,7 +9,8 @@ from mysql.connector.cursor import MySQLCursor
 from tqdm import tqdm
 import meilisearch_python_sdk.errors
 import mysql.connector
-from markdownify import MarkdownConverter
+# from markdownify import MarkdownConverter
+from html_to_markdown import convert
 
 
 from config import (
@@ -37,16 +38,7 @@ async def markdowify_by_pandoc(content: bytes) -> str:
     )
     stdout, stderr = await proc.communicate(input=content)
     await proc.wait()
-    return stdout.decode("utf-8")
-
-async def markdowify_by_markdownify(converter: MarkdownConverter, content: bytes) -> str:
-    # return converter.convert(content)
-    r = asyncio.get_event_loop().run_in_executor(None, converter.convert, content)
-    ret = await r
-    if exp:=r.exception():
-        raise exp
-    return ret
-    
+    return stdout.decode("utf-8")    
 
 def get_todo_entries_size(cursor: MySQLCursor, meili_max_id: int) -> int:
     # 有多少行
@@ -180,12 +172,11 @@ async def main():
     chunked_entries_queue: asyncio.Queue[Sequence[Entry]] = asyncio.Queue(maxsize=WORKERS)
 
     async def worker(worker_id:int = 0):
-        converter = MarkdownConverter()
         while True:
             entry_chunk = await chunked_entries_queue.get()
             for row in tqdm(entry_chunk, desc=f"worker{worker_id} ...", unit="markdown", unit_scale=1, total=len(entry_chunk)):
                 if row["content"]:
-                    row["content"] = await markdowify_by_markdownify(converter, row["content"])
+                    row["content"] = convert(row["content"].decode("utf-8"))
                 else:
                     row["content"] = ""
 
